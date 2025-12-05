@@ -108,6 +108,43 @@ impl<'c, 'de, T: DeserializeOwned> Pager<'c, T> {
         }
         return Ok(serde_json::from_value(self.advance_page_inner().await?).unwrap());
     }
+
+    pub async fn find_multi<const N: usize>(
+        &mut self,
+        predicates: [&(dyn Sync + Fn(&T) -> bool); N],
+    ) -> Result<[Option<T>; N], Error> {
+        let mut found = [const { None }; N];
+        loop {
+            let page = self.advance_page().await?;
+            if page.is_empty() {
+                break;
+            }
+            for value in page {
+                for (pred, found) in predicates.iter().zip(&mut found) {
+                    if found.is_none() && pred(&value) {
+                        *found = Some(value);
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(found)
+    }
+
+    pub async fn find(&mut self, predicate: impl Fn(&T) -> bool) -> Result<Option<T>, Error> {
+        loop {
+            let page = self.advance_page().await?;
+            if page.is_empty() {
+                break;
+            }
+            for value in page {
+                if predicate(&value) {
+                    return Ok(Some(value));
+                }
+            }
+        }
+        return Ok(None);
+    }
 }
 
 pub struct OpenCloudV2<'c> {

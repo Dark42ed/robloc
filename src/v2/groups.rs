@@ -43,6 +43,25 @@ impl<'c> OcV2Groups<'c> {
             options,
         )
     }
+
+    pub async fn update_membership(
+        &self,
+        group_id: u64,
+        membership_id: &str,
+        role_id: &str,
+    ) -> Result<GroupMembership, Error> {
+        Ok(self
+            .v2
+            .patch(&format!(
+                "/cloud/v2/groups/{group_id}/memberships/{membership_id}"
+            ))
+            .body(format!("{{\"role\": \"{}\"}}", role_id))
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?)
+    }
 }
 
 #[derive(Deserialize)]
